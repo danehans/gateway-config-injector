@@ -1,0 +1,144 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gateway-config-injector
+  labels:
+    name: gateway-config-webhook
+  namespace: gateway-config-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gateway-config-injector
+  labels:
+    name: gateway-config-webhook
+rules:
+- apiGroups:
+  - admissionregistration.k8s.io
+  resources:
+  - mutatingwebhookconfigurations
+  verbs:
+  - get
+  - update
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gateway-config-injector
+  annotations:
+  labels:
+    name: gateway-config-webhook
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gateway-config-injector
+subjects:
+- kind: ServiceAccount
+  name: gateway-config-injector
+  namespace: gateway-config-system
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gateway-config-injector
+  annotations:
+  labels:
+    name: gateway-config-webhook
+  namespace: gateway-config-system
+rules:
+- apiGroups:
+  - ''
+  resources:
+  - secrets
+  verbs:
+  - get
+  - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gateway-config-injector
+  annotations:
+  labels:
+    name: gateway-config-webhook
+  namespace: gateway-config-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: gateway-config-injector
+subjects:
+- kind: ServiceAccount
+  name: gateway-config-injector
+  namespace: gateway-config-system
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gateway-config-injector
+  annotations:
+  labels:
+    name: gateway-config-webhook
+  namespace: gateway-config-system
+spec:
+  template:
+    metadata:
+      name: gateway-config-injector-create
+      labels:
+        name: gateway-config-webhook
+    spec:
+      containers:
+      - name: create
+        image: registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.1.1
+        imagePullPolicy: IfNotPresent
+        args:
+        - create
+        - --host=gateway-config-injector,gateway-config-injector.gateway-config-system.svc,172.18.7.110
+        - --namespace=gateway-config-system
+        - --secret-name=gateway-config-injector
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+      restartPolicy: OnFailure
+      serviceAccountName: gateway-config-injector
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2000
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: gateway-config-injector-patch
+  labels:
+    name: gateway-config-webhook
+  namespace: gateway-config-system
+spec:
+  template:
+    metadata:
+      name: gateway-config-injector-patch
+      labels:
+        name: gateway-config-webhook
+    spec:
+      containers:
+      - name: patch
+        image: registry.k8s.io/ingress-nginx/kube-webhook-certgen:v1.1.1
+        imagePullPolicy: IfNotPresent
+        args:
+        - patch
+        - --webhook-name=gateway-config-injector
+        - --namespace=gateway-config-system
+        - --patch-mutating=true
+        - --patch-validating=false
+        - --secret-name=gateway-config-injector
+        - --patch-failure-policy=Ignore
+        env:
+        - name: POD_NAMESPACE
+          valueFrom:
+            fieldRef:
+              fieldPath: metadata.namespace
+      restartPolicy: OnFailure
+      serviceAccountName: gateway-config-injector
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 2000

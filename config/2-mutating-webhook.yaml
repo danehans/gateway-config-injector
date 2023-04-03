@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway-config-injector
+  namespace: gateway-config-system
+spec:
+  type: LoadBalancer
+  ports:
+  - name: https-webhook
+    port: 443
+    targetPort: 8443
+  selector:
+    name: gateway-config-injector
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway-config-injector
+  namespace: gateway-config-system
+  labels:
+    name: gateway-config-webhook
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: gateway-config-injector
+  template:
+    metadata:
+      name: gateway-config-injector
+      labels:
+        name: gateway-config-injector
+    spec:
+      containers:
+      - name: webhook
+        image: danehans/gateway-config-injector:latest
+        imagePullPolicy: IfNotPresent
+        args:
+        - -logtostderr
+        - --tlsCertFile=/etc/certs/cert
+        - --tlsKeyFile=/etc/certs/key
+        - -v=10
+        - 2>&1
+        ports:
+        - containerPort: 8443
+          name: webhook
+        resources:
+          limits:
+            memory: 50Mi
+            cpu: 100m
+          requests:
+            memory: 50Mi
+            cpu: 100m
+        volumeMounts:
+        - name: webhook-certs
+          mountPath: /etc/certs
+          readOnly: true
+        securityContext:
+          readOnlyRootFilesystem: true
+      volumes:
+      - name: webhook-certs
+        secret:
+          secretName: gateway-config-injector
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: MutatingWebhookConfiguration
+metadata:
+  name: gateway-config-injector
+webhooks:
+- name: gateway-config-injector.istio.io
+  matchPolicy: Equivalent
+  rules:
+  - operations: [ "CREATE" ]
+    apiGroups: [ "apps" ]
+    apiVersions: [ "v1" ]
+    resources: [ "deployments" ]
+  namespaceSelector:
+    matchLabels:
+      istio.io/dataplane-mode: ambient
+  objectSelector:
+    matchLabels:
+      gateway.istio.io/managed: istio.io-mesh-controller
+  failurePolicy: Fail
+  sideEffects: None
+  admissionReviewVersions:
+  - v1
+  clientConfig:
+    service:
+      name: gateway-config-injector
+      namespace: gateway-config-system
+      path: "/mutate"
