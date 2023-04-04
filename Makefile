@@ -2,7 +2,7 @@
 export GO111MODULE=on
 
 # The registry to push container images to.
-export REGISTRY ?= danehans
+export HUB ?= danehans
 export TAG ?= latest
 
 # The name of the kind cluster for pushing the the image.
@@ -41,15 +41,15 @@ build: clean ## Build the binary.
 
 .PHONY: docker-build
 docker-build: build ## Build the docker image.
-	docker build -t $(REGISTRY)/gateway-config-injector:$(TAG) .
+	docker build -t $(HUB)/gateway-config-injector:$(TAG) .
 
 .PHONY: docker-push
 docker-push: docker-build ## Build and push the docker image.
-	docker push $(REGISTRY)/gateway-config-injector:$(TAG)
+	docker push $(HUB)/gateway-config-injector:$(TAG)
 
 .PHONY: kind-push
 kind-push: docker-build ## Build and puush image to kind cluster.
-	kind load docker-image $(REGISTRY)/gateway-config-injector:$(TAG) --name $(KIND_CLUSTER)
+	kind load docker-image $(HUB)/gateway-config-injector:$(TAG) --name $(KIND_CLUSTER)
 
 .PHONY: install
 install: generate

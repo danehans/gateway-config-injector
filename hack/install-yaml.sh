@@ -35,9 +35,9 @@ run::sed() {
 }
 
 # Update the image in the install manifest.
-echo "setting \"image: ${REGISTRY}/gateway-config-injector:${TAG}\" for tmp/install.yaml"
+echo "setting \"image: ${HUB}/gateway-config-injector:${TAG}\" for tmp/install.yaml"
 run::sed \
-  "-es|image: danehans/gateway-config-injector:.*$|image: ${REGISTRY}/gateway-config-injector:${TAG}|" \
+  "-es|image: danehans/gateway-config-injector:.*$|image: ${HUB}/gateway-config-injector:${TAG}|" \
   "tmp/install.yaml"
 
 echo "Generated:" tmp/install.yaml

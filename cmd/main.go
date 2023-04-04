@@ -50,7 +50,7 @@ func main() {
 
 	certs, err := tls.LoadX509KeyPair(tlsCertFilePath, tlsKeyFilePath)
 	if err != nil {
-		klog.Fatalf("failed to load TLS cert-key for admission-webhook-server: %v", err)
+		klog.Fatalf("failed to load TLS cert-key for gateway-config-injector: %v", err)
 	}
 
 	hookSvr := &admission.WebhookServer{

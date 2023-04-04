@@ -15,7 +15,7 @@ A mutating webhook server that injects config into child objects of a Gateway.
 Set environment varaibles used for building and deploying gateway-config-injector:
 
 ```bash
-REGISTRY=<your_registry>
+HUB=<your_image_registry>
 ```
 
 Build and push docker image:

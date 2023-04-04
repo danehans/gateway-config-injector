@@ -110,7 +110,6 @@ func (whsvr *WebhookServer) Mutate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		patch = fmt.Sprintf("[{\"op\":\"replace\",\"path\":\"/spec/replicas\",\"value\":%d}]", replicasInt)
-		//patches = append(patches, patchOperation{Op: "add", Path: "/metadata/annotations", Value: patch})
 	}
 
 	admissionResponse.Allowed = true
