@@ -6,24 +6,16 @@ export GO111MODULE=on
 
 # The registry to push container images to.
 export REGISTRY ?= docker.io/danehans
-export BASE_REF ?= main
-export COMMIT ?= $(shell git rev-parse --short HEAD)
+export TAG ?= latest
 
-DOCKER ?= docker
-# TOP is the current directory where this Makefile lives.
-TOP := $(dir $(firstword $(MAKEFILE_LIST)))
-# ROOT is the root of the mkdocs tree.
-ROOT := $(abspath $(TOP))
+# The name of the kind cluster for pushing the the image.
+export KIND_CLUSTER ?= istio-testing
 
-all: generate vet fmt verify test
+all: generate fmt vet verify test
 
 # Run generators.
 .PHONY: generate
-generate: webhook-yaml
-
-.PHONY: webhook-yaml
-webhook-yaml:
-	hack/webhook-yaml.sh
+generate: install-yaml
 
 .PHONY: install-yaml
 install-yaml:
@@ -46,36 +38,39 @@ verify:
 test:
 	go test -race -cover ./cmd/... ./pkg/...
 
-# Verify Docker Buildx support.
-.PHONY: image.buildx.verify
-image.buildx.verify:
-	docker version
-	$(eval PASS := $(shell docker buildx --help | grep "docker buildx" ))
-	@if [ -z "$(PASS)" ]; then \
-		echo "Cannot find docker buildx, please install first."; \
-		exit 1;\
-	else \
-		echo "===========> Support docker buildx"; \
-		docker buildx version; \
-	fi
+.PHONY: clean
+clean:
+	go clean
+	rm -rf bin
 
-BUILDX_CONTEXT = gateway-config-injector-builder
-BUILDX_PLATFORMS = linux/amd64,linux/arm64
+.PHONY: build
+build: clean ## Build the binary.
+	go build -o bin/gateway-config-injector ./cmd/
 
-# Setup multi-arch docker buildx enviroment.
-.PHONY: image.multiarch.setup
-image.multiarch.setup: image.buildx.verify
-# Ensure qemu is in binfmt_misc.
-# Docker desktop already has these in versions recent enough to have buildx,
-# We only need to do this setup on linux hosts.
-	@if [ "$(shell uname)" == "Linux" ]; then \
-		docker run --rm --privileged multiarch/qemu-user-static --reset -p yes; \
-	fi
-# Ensure we use a builder that can leverage it, we need to recreate one.
-	docker buildx rm $(BUILDX_CONTEXT) || :
-	docker buildx create --use --name $(BUILDX_CONTEXT) --platform "${BUILDX_PLATFORMS}"
+.PHONY: docker-build
+docker-build: build ## Build the docker image.
+	docker build -t $(REGISTRY)/gateway-config-injector:$(TAG) .
 
-# Build and Push Multi Arch Images.
-.PHONY: release
-release: image.multiarch.setup
-	hack/build-and-push.sh
+.PHONY: docker-push
+docker-push: docker-build ## Build and push the docker image.
+	docker push $(REGISTRY)/gateway-config-injector:$(TAG)
+
+.PHONY: kind-push
+kind-push: docker-build ## Push image to kind cluster.
+	kind load docker-image $(REGISTRY)/gateway-config-injector:$(TAG) --name $(KIND_CLUSTER)
+
+.PHONY: install
+install: generate
+	kubectl apply -f release/install.yaml
+
+.PHONY: uninstall
+uninstall: generate
+	kubectl delete -f release/install.yaml
+
+.PHONY: examples
+examples:
+	kubectl apply -f examples
+
+.PHONY: unexamples
+unexamples:
+	kubectl delete -f examples

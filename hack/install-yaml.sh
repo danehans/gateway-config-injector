@@ -4,8 +4,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-thisyear=`date +"%Y"`
-
 mkdir -p release/
 
 # Make clean files with boilerplate
@@ -15,7 +13,7 @@ cat << EOF >> release/install.yaml
 #
 EOF
 
-for file in `ls config/webhook/*.yaml`
+for file in `ls config/*.yaml`
 do
     echo "---" >> release/install.yaml
     echo "#" >> release/install.yaml
